@@ -7,6 +7,8 @@ Data set is availaible on kaggle home page.
 
 Classifier = Random Forest
 
+Language = Python 3 
+
 Current accuracy after kcross = 79.46%
 
 
