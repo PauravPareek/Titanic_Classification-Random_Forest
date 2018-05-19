@@ -1,0 +1,118 @@
+"" 
+
+Please read read me document first. 
+
+This is Explanatory File of kernel, explaining each step. not a raw code file
+
+** represent open issues in kernel, all open issues are mention in read me document.
+
+Language = Python 3,
+Classifier = Random Forest, 
+Current Accuracy after kcross = 79.46%, 
+
+"""
+
+
+
+
+
+# Importing the libraries
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# Importing the dataset
+dataset = pd.read_csv('train.csv')
+
+
+""" **1 = need to perform data wrangling and check partial dependency b/w each Independent Vetor vs Dependent vector, 
+          and then drop less important classes currently just assuming Name, Ticket, Fare & Cabin are not contributing in survival """
+
+#drop Name, Ticket, Fare, Cabin
+dataset = dataset.drop(['Name','Cabin','Fare','Ticket', 'PassengerId' ], axis = 1)
+
+
+""" **2 = Treating train and split both right now, no need to treat test data, occures in overfitting """
+
+#finding missing values 
+summary=dataset.describe(include="all")
+count_null=dataset.isnull().sum()
+
+
+""" **3 = Treating missing values in train and split both right now, no need to treat test data, occures in overfitting """
+""" **4 = Filling all age missging values (177values out of 890 = 19.88%) zero, which is not efficient enough. 
+          need to follow an approach for filling age according to name or by anyother mean, Check top kaggle submission to get an idea."""
+
+#handling age missing values 
+#place all age nan = 0 and fit rf model 
+dataset['Age'] = dataset['Age'].replace(np.nan, 0)
+dataset['Embarked']= dataset['Embarked'].fillna(dataset['Embarked'].mode()[0])
+count_null=dataset.isnull().sum()
+x = dataset.iloc[:, 1:7].values
+y = dataset.iloc[:, 0].values
+
+#Handle Categorical variable, Encoding independent variable, age index = 1, Embarked index = 5
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+labelencoder = LabelEncoder()
+x[:, 1] = labelencoder.fit_transform(x[:, 1])
+x[:, 5] = labelencoder.fit_transform(x[:, 5])
+onehotencoder1 = OneHotEncoder(categorical_features = [1])
+x = onehotencoder1.fit_transform(x).toarray()
+onehotencoder2 = OneHotEncoder(categorical_features = [6])
+x = onehotencoder2.fit_transform(x).toarray()
+#vector x index 0=c ,1=q , 2=s, 3 = female, 4= male , 5 = pclass, 6=Age, 7 = sibsp, 8= parch
+
+#splitiing dataset into training and test 
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+
+# Feature Scaling
+from sklearn.preprocessing import StandardScaler
+sc = StandardScaler()
+x_train = sc.fit_transform(x_train)
+x_test = sc.transform(x_test)
+
+# Fitting Random Forest Classification to the Training set
+from sklearn.ensemble import RandomForestClassifier
+classifier = RandomForestClassifier(n_estimators = 48, criterion = 'gini', random_state = 0)
+classifier.fit(x_train, y_train)
+
+# Predicting the Test set results
+y_pred_RF = classifier.predict(x_test)
+
+# Making the Confusion Matrix
+from sklearn.metrics import confusion_matrix
+cm_RF = confusion_matrix(y_test, y_pred_RF)
+
+#calculating accuracy 
+from sklearn.metrics import accuracy_score
+accuracyRF = accuracy_score(y_test, y_pred_RF)
+
+# Applying k-Fold Cross Validation
+from sklearn.model_selection import cross_val_score
+accuracies = cross_val_score(estimator = classifier, X = x_train, y = y_train, cv = 10)
+Mean_accuracy = accuracies.mean()
+STD_accuracy = accuracies.std()
+
+# Applying Grid Search to find the the best hyper parameters
+from sklearn.model_selection import GridSearchCV
+parameters = [{'n_estimators': [10, 50, 100, 150, 200], 'criterion': ['gini']},
+              {'n_estimators': [10, 50, 100, 150, 200], 'criterion': ['entropy']}]
+grid_search = GridSearchCV(estimator = classifier,
+                           param_grid = parameters,
+                           scoring = 'accuracy',
+                           cv = 10)
+grid_search = grid_search.fit(x_train, y_train)
+best_accuracy = grid_search.best_score_
+best_parameters = grid_search.best_params_
+
+# Applying Grid Search on results to find the best hyper parameters
+from sklearn.model_selection import GridSearchCV
+parameters = [{'n_estimators': [45,46,47,48,49,50], 'criterion': ['gini']}]
+grid_search = GridSearchCV(estimator = classifier,
+                           param_grid = parameters,
+                           scoring = 'accuracy',
+                           cv = 10)
+grid_search = grid_search.fit(x_train, y_train)
+best_accuracy = grid_search.best_score_
+best_parameters = grid_search.best_params_
